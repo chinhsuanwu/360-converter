@@ -135,11 +135,11 @@ namespace Converter {
             *coord_y += radius;
         }
 
-        void setC2EMap() {
+        void setCEMap() {
             equi_h = cube_h * 2;
             equi_w = cube_w * 4;
 
-            C2E_map = new Coord[equi_h * equi_w];
+            CE_map = new Coord[equi_h * equi_w];
 
             unsigned int pix = 0;
             for (int i = 0; i < equi_h; ++i) {
@@ -176,15 +176,19 @@ namespace Converter {
                             break;
                     }
 
-                    C2E_map[pix].face = faceID;
-                    C2E_map[pix].x = coord_x;
-                    C2E_map[pix++].y = coord_y;
+                    CE_map[pix].face = faceID;
+                    CE_map[pix].x = coord_x;
+                    CE_map[pix++].y = coord_y;
                 }
             }
         }
 
-        Coord getC2ECoord(int i, int j) {
-            return C2E_map[i * equi_w + j];
+        Coord getCECoord(int i, int j) {
+            return CE_map[i * equi_w + j];
+        }
+
+        Coord *getCEMap() {
+            return CE_map;
         }
 
         Equi toEqui();
@@ -196,7 +200,7 @@ namespace Converter {
         // assets
         Image faces[FACE_NUM];
         Image cubemap;
-        Coord *C2E_map;
+        Coord *CE_map;
     };
 
     class Equi {
@@ -205,6 +209,12 @@ namespace Converter {
 
         void setEqui(Image t_equi) {
             equi = t_equi;
+            equi_h = equi.h;
+            equi_w = equi.w;
+        }
+
+        void setCEMap(Coord *t_CE_map) {
+            CE_map = t_CE_map;
         }
 
         Image getEqui() {
@@ -218,22 +228,13 @@ namespace Converter {
 
         // assets
         Image equi;
-        Coord *E2C_map;
+        Coord *CE_map;
     };
 
 
     class Stereo {
     public:
-        /**
-         * Constructor, initialize parameters for class Stereo
-         * 
-         * @param       t_stereo_h, height size of stereo image
-         * @param       t_stereo_w, width size of stereo image
-         * @return      None
-         */
-        Stereo(const unsigned int t_stereo_h, const unsigned int t_stereo_w)
-        : stereo_h(t_stereo_h), stereo_w(t_stereo_w)
-        {}
+        Stereo() {};
     private:
         // input size
         unsigned int stereo_w, stereo_h;
@@ -243,7 +244,7 @@ namespace Converter {
     };
 
     Equi Cube::toEqui() {
-        Cube::setC2EMap();
+        Cube::setCEMap();
         Image equi_;
         equi_.h = equi_h;
         equi_.w = equi_w;
@@ -251,7 +252,7 @@ namespace Converter {
 
         for (int i = 0; i < equi_h; ++i) {
             for (int j = 0; j < equi_w; ++j) {
-                Coord coord = getC2ECoord(i, j);
+                Coord coord = getCECoord(i, j);
                 for (int k = 0; k < CHANNEL_NUM; ++k) {
                     equi_.img[CHANNEL_NUM * (i*equi_.w + j) + k] = \
                         faces[coord.face].img[CHANNEL_NUM * ((unsigned long) coord.y * cube_w + (unsigned long) coord.x) + k];
@@ -260,6 +261,7 @@ namespace Converter {
         }
         Equi equi = Equi();
         equi.setEqui(equi_);
+        equi.setCEMap(Cube::getCEMap());
         return equi;
     }
 
