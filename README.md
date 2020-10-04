@@ -12,17 +12,10 @@ This project has been tested on:
 The only thing you need is a C/C++ compiler, no other package do you need to install.
 
 ## Run example
-Clone the repository
 ```
 git clone https://github.com/chinhsuanwu/360-converter.git
-```
-Build files
-```
 cd 360-converter
 make
-```
-Run example
-```
 make run
 ```
 
@@ -34,11 +27,11 @@ Just directly include the [`converter.hpp`](https://github.com/chinhsuanwu/360-c
 For example:
 - To convert from `Cube` to `Equi`
     ```c++
-    Equi equi = cube.toEqui();
+    Converter::Equi equi = cube.toEqui();
     ```
 - To get image
     ```c++
-    Image img = equi.getEqui();
+    Converter::Image img = equi.getEqui();
     ```
 - To write image
     ```c++
@@ -47,4 +40,4 @@ For example:
 Find out more at [example.cpp](https://github.com/chinhsuanwu/360-converter/blob/master/example/example.cpp)
 
 ## Acknowledgement
-This project is using [stb](https://github.com/nothings/stb) library for image I/O, great thanks for their excellent works.
+This project is using [stb](https://github.com/nothings/stb) library for image I/O, great thanks to their excellent work.
