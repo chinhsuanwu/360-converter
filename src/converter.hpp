@@ -11,7 +11,7 @@
 
 namespace Converter
 {
-    enum Face
+    enum FaceID
     {
         FRONT = 0,
         RIGHT,
@@ -24,9 +24,9 @@ namespace Converter
 
     struct Coord
     {
-        Face face; // the face of the cube
-        double x;  // the x Coordinate
-        double y;  // the y Coordinate
+        FaceID face; // the face of the face
+        double x;    // the x Coordinate
+        double y;    // the y Coordinate
     };
 
     struct Image
@@ -34,66 +34,20 @@ namespace Converter
         unsigned int h;
         unsigned int w;
         uint8_t *img;
-
-        /**
-         * Suppose to put in GPU using CUDA
-         */
-        void copyTo(Image dst, unsigned int start_h, unsigned int start_w)
-        {
-            for (unsigned int i = start_h; i < start_h + h; ++i)
-                for (unsigned int j = start_w; j < start_w + w; ++j)
-                    for (int k = 0; k < CHANNEL_NUM; ++k)
-                        dst.img[CHANNEL_NUM * (i * dst.w + j) + k] = img[CHANNEL_NUM * ((i - start_h) * w + (j - start_w)) + k];
-        }
     };
 
-    class Cube;
-    class Equi;
-    class Stereo;
-    class Cube
+    class Converter
     {
     public:
-        Cube(){};
-
-        void setCube(Image t_faces[FACE_NUM])
-        {
-            for (int i = 0; i < FACE_NUM; ++i)
-            {
-                assert(t_faces[i].h == t_faces[i].w);
-                faces[i] = t_faces[i];
-            }
-            cube_h = faces[0].h;
-            cube_w = faces[0].w;
-        }
-
-        Image getFace(int i)
-        {
-            return faces[i];
-        }
-
-        Image getCubeMap()
-        {
-            cubemap = {cube_h * 3, cube_w * 4};
-            cubemap.img = new uint8_t[cubemap.w * cubemap.h * CHANNEL_NUM];
-            faces[FRONT].copyTo(cubemap, cube_h, cube_w);     // front
-            faces[RIGHT].copyTo(cubemap, cube_h, 2 * cube_w); // right
-            faces[BACK].copyTo(cubemap, cube_h, 3 * cube_w);  // left
-            faces[LEFT].copyTo(cubemap, cube_h, 0);           // back
-            faces[TOP].copyTo(cubemap, 0, cube_w);            // top
-            faces[DOWN].copyTo(cubemap, 2 * cube_h, cube_w);  // down
-
-            return cubemap;
-        }
-
         inline bool isInRange(const double l, const double theta, const double u)
         {
             return (theta >= l && theta < u);
         }
 
-        const Face getFaceID(const double theta, const double phi)
+        const FaceID getFaceID(const double theta, const double phi)
         {
-            Face faceID;
-            double n_theta; // M_PI_4 / (double) cube_h
+            FaceID faceID;
+            double n_theta;
 
             if (isInRange(-M_PI_4, theta, M_PI_4))
             {
@@ -113,14 +67,7 @@ namespace Converter
             else
             {
                 faceID = BACK;
-                if (theta > 0.0)
-                {
-                    n_theta = theta - M_PI;
-                }
-                else
-                {
-                    n_theta = theta + M_PI;
-                }
+                n_theta = (theta > 0.0 ? theta - M_PI : theta + M_PI);
             }
 
             double phiThr = atan2(1.0, 1.0 / cos(n_theta));
@@ -137,7 +84,7 @@ namespace Converter
 
         void transform(const double axis, const double px, const double py, const double radian, double *coord_x, double *coord_y)
         {
-            double radius = (double)cube_h / 2.0;
+            double radius = (double)face_h / 2.0;
             double ratio = radius / axis;
 
             *coord_x = ratio * px;
@@ -153,12 +100,19 @@ namespace Converter
             *coord_y += radius;
         }
 
-        void setCEMap()
+        void setFEMap(Coord *t_FE_map = NULL)
         {
-            equi_h = cube_h * 2;
-            equi_w = cube_w * 4;
+            if (t_FE_map)
+            {
+                FE_map = t_FE_map;
+                return;
+            }
 
-            CE_map = new Coord[equi_h * equi_w];
+            assert(face_h == face_w);
+            equi_h = face_h * 2;
+            equi_w = face_w * 4;
+
+            FE_map = new Coord[equi_h * equi_w];
 
             unsigned int pix = 0;
             for (int i = 0; i < equi_h; ++i)
@@ -170,7 +124,7 @@ namespace Converter
                     double theta = u * M_PI, phi = v * M_PI_2;
                     double x = cos(phi) * cos(theta), y = sin(phi), z = cos(phi) * sin(theta);
 
-                    Face faceID = getFaceID(theta, phi);
+                    FaceID faceID = getFaceID(theta, phi);
 
                     double coord_x, coord_y;
                     switch (faceID)
@@ -197,149 +151,231 @@ namespace Converter
                         break;
                     }
 
-                    CE_map[pix].face = faceID;
-                    CE_map[pix].x = coord_x;
-                    CE_map[pix++].y = coord_y;
+                    FE_map[pix].face = faceID;
+                    FE_map[pix].x = coord_x;
+                    FE_map[pix++].y = coord_y;
                 }
             }
         }
 
-        Coord getCECoord(int i, int j)
+        Coord getFECoord(int i, int j)
         {
-            return CE_map[i * equi_w + j];
+            return FE_map[i * equi_w + j];
         }
 
-        Coord *getCEMap()
+        Coord *getFEMap()
         {
-            return CE_map;
+            return FE_map;
         }
 
+    protected:
+        unsigned int face_h, face_w;
+        unsigned int cube_h, cube_w;
+        unsigned int equi_h, equi_w;
+        unsigned int stereo_h, stereo_w;
+        Coord *FE_map = NULL, *FS_map = NULL;
+    };
+
+    class Face;
+    class Cube;
+    class Equi;
+    class Stereo;
+
+    class Face : public Converter
+    {
+    public:
+        Face(Image t_faces[FACE_NUM])
+        {
+            for (int i = 0; i < FACE_NUM; ++i)
+            {
+                assert(t_faces[i].h == t_faces[i].w);
+                faces[i] = t_faces[i];
+            }
+
+            face_h = faces[0].h;
+            face_w = faces[0].w;
+        };
+
+        Image getFace(int faceID)
+        {
+            return faces[faceID];
+        }
+
+        void copy(Image src, Image dst, unsigned int start_h, unsigned int start_w)
+        {
+            for (unsigned int i = start_h; i < start_h + src.h; ++i)
+                for (unsigned int j = start_w; j < start_w + src.w; ++j)
+                    for (int k = 0; k < CHANNEL_NUM; ++k)
+                        dst.img[CHANNEL_NUM * (i * dst.w + j) + k] = src.img[CHANNEL_NUM * ((i - start_h) * src.w + (j - start_w)) + k];
+        }
+
+        Cube toCube();
         Equi toEqui();
 
     private:
-        // input size
-        unsigned int cube_w, cube_h;
-        unsigned int equi_w, equi_h;
-
-        // assets
         Image faces[FACE_NUM];
-        Image cubemap;
-        Coord *CE_map;
     };
 
-    class Equi
+    class Cube : public Converter
     {
     public:
-        Equi(){};
-
-        void setEqui(Image t_equi)
+        Cube(Image t_cubemap) : cubemap(t_cubemap)
         {
-            equi = t_equi;
+            cube_h = cubemap.h;
+            cube_w = cubemap.w;
+        };
+
+        Image getCubeMap()
+        {
+            return cubemap;
+        }
+
+        void crop(Image src, Image dst, unsigned int start_h, unsigned int start_w)
+        {
+            for (unsigned int i = start_h; i < start_h + dst.h; ++i)
+                for (unsigned int j = start_w; j < start_w + dst.w; ++j)
+                    for (int k = 0; k < CHANNEL_NUM; ++k)
+                        dst.img[CHANNEL_NUM * ((i - start_h) * dst.w + (j - start_w)) + k] = src.img[CHANNEL_NUM * (i * src.w + j) + k];
+        }
+
+        Face toFace();
+        Equi toEqui();
+
+    private:
+        Image cubemap;
+    };
+
+    class Equi : public Converter
+    {
+    public:
+        Equi(Image t_equi) : equi(t_equi)
+        {
             equi_h = equi.h;
             equi_w = equi.w;
-        }
-
-        void setCEMap(Coord *t_CE_map)
-        {
-            CE_map = t_CE_map;
-        }
-
-        Coord getCECoord(int i, int j)
-        {
-            return CE_map[i * equi_w + j];
-        }
-
-        Coord *getCEMap()
-        {
-            return CE_map;
-        }
+        };
 
         Image getEqui()
         {
             return equi;
         }
 
+        Face toFace();
         Cube toCube();
 
     private:
-        // input size
-        unsigned int equi_w, equi_h;
-        unsigned int cube_w, cube_h;
-
-        // assets
         Image equi;
-        Coord *CE_map;
     };
 
-    class Stereo
+    class Stereo : public Converter
     {
     public:
         Stereo(){};
 
     private:
-        // input size
-        unsigned int stereo_w, stereo_h;
-
-        // assets
         Image stereo;
     };
 
-    Equi Cube::toEqui()
+    Cube Face::toCube()
     {
-        Cube::setCEMap();
-        Image equi_;
-        equi_.h = equi_h;
-        equi_.w = equi_w;
-        equi_.img = new uint8_t[equi_w * equi_h * CHANNEL_NUM];
+        Image img = {face_h * 3, face_w * 4, new uint8_t[img.w * img.h * CHANNEL_NUM]};
+        copy(faces[FRONT], img, face_h, face_w);
+        copy(faces[RIGHT], img, face_h, 2 * face_w);
+        copy(faces[BACK], img, face_h, 3 * face_w);
+        copy(faces[LEFT], img, face_h, 0);
+        copy(faces[TOP], img, 0, face_w);
+        copy(faces[DOWN], img, 2 * face_h, face_w);
+
+        return Cube(img);
+    }
+
+    Equi Face::toEqui()
+    {
+        if (!FE_map)
+            setFEMap();
+
+        equi_h = face_h * 2;
+        equi_w = face_w * 4;
+
+        Image img = {equi_h, equi_w, new uint8_t[equi_w * equi_h * CHANNEL_NUM]};
 
         for (int i = 0; i < equi_h; ++i)
         {
             for (int j = 0; j < equi_w; ++j)
             {
-                Coord coord = getCECoord(i, j);
+                Coord coord = getFECoord(i, j);
                 for (int k = 0; k < CHANNEL_NUM; ++k)
                 {
-                    equi_.img[CHANNEL_NUM * (i * equi_.w + j) + k] =
-                        faces[coord.face].img[CHANNEL_NUM * ((unsigned long)coord.y * cube_w + (unsigned long)coord.x) + k];
+                    img.img[CHANNEL_NUM * (i * img.w + j) + k] =
+                        faces[coord.face].img[CHANNEL_NUM * ((unsigned long)coord.y * face_w + (unsigned long)coord.x) + k];
                 }
             }
         }
-        Equi equi = Equi();
-        equi.setEqui(equi_);
-        equi.setCEMap(Cube::getCEMap());
+
+        Equi equi = Equi(img);
+        equi.setFEMap(FE_map);
+
         return equi;
     }
 
-    Cube Equi::toCube()
+    Face Cube::toFace()
     {
-        Cube cube = Cube();
+        face_h = cubemap.h / 3;
+        face_w = cubemap.w / 4;
+
         Image faces[FACE_NUM];
-
-        cube_h = equi_h / 2;
-        cube_w = equi_w / 4;
-
         for (int i = 0; i < FACE_NUM; ++i)
-        {
-            faces[i].h = cube_h;
-            faces[i].w = cube_w;
-            faces[i].img = new uint8_t[cube_w * cube_h * CHANNEL_NUM];
-        }
+            faces[i] = {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
 
-        for (int i = 0; i < equi_h; ++i)
+        crop(cubemap, faces[FRONT], face_h, face_w);
+        crop(cubemap, faces[RIGHT], face_h, 2 * face_w);
+        crop(cubemap, faces[BACK], face_h, 3 * face_w);
+        crop(cubemap, faces[LEFT], face_h, 0);
+        crop(cubemap, faces[TOP], 0, face_w);
+        crop(cubemap, faces[DOWN], 2 * face_h, face_w);
+
+        return Face(faces);
+    }
+
+    Equi Cube::toEqui()
+    {
+        return toFace().toEqui();
+    }
+
+    Face Equi::toFace()
+    {
+        if (!FE_map)
+            setFEMap();
+
+        face_h = equi.h / 2;
+        face_w = equi.w / 4;
+
+        Image faces[FACE_NUM];
+        for (int i = 0; i < FACE_NUM; ++i)
+            faces[i] = {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
+
+        for (int i = 0; i < equi.h; ++i)
         {
-            for (int j = 0; j < equi_w; ++j)
+            for (int j = 0; j < equi.w; ++j)
             {
-                Coord coord = getCECoord(i, j);
+                Coord coord = getFECoord(i, j);
                 for (int k = 0; k < CHANNEL_NUM; ++k)
                 {
-                    faces[coord.face].img[CHANNEL_NUM * ((unsigned long)coord.y * cube_w + (unsigned long)coord.x) + k] =
+                    faces[coord.face].img[CHANNEL_NUM * ((unsigned long)coord.y * face_w + (unsigned long)coord.x) + k] =
                         equi.img[CHANNEL_NUM * (i * equi.w + j) + k];
                 }
             }
         }
 
-        cube.setCube(faces);
-        return cube;
+        Face face = Face(faces);
+        face.setFEMap(FE_map);
+
+        return face;
     }
+
+    Cube Equi::toCube()
+    {
+        return toFace().toCube();
+    }
+
 } // namespace Converter
 #endif

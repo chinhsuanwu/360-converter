@@ -12,35 +12,34 @@
 
 int main(int argc, char **argv)
 {
-    Converter::Image img;
-    Converter::Image faces[Converter::FACE_NUM];
+	Converter::Image img;
+	Converter::Image faces[Converter::FACE_NUM];
 
-    for (int i = 0; i < Converter::FACE_NUM; ++i)
-    {
-        int w, h, bpp;
-        faces[i].img = stbi_load(argv[i + 1], &w, &h, &bpp, CHANNEL_NUM);
-        faces[i].h = h;
-        faces[i].w = w;
-    }
+	int w, h, bpp;
+	for (int i = 0; i < Converter::FACE_NUM; ++i)
+	{
+		faces[i].img = stbi_load(argv[i + 1], &w, &h, &bpp, CHANNEL_NUM);
+		faces[i].h = h, faces[i].w = w;
+	}
 
-    Converter::Cube cube = Converter::Cube();
-    cube.setCube(faces);
+	Converter::Face face = Converter::Face(faces);
 
-    img = cube.getFace(Converter::FRONT);
-    stbi_write_png("out/front.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
+	Converter::Cube cube = face.toCube();
+	img = cube.getCubeMap();
+	stbi_write_png("out/cubemap.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-    img = cube.getCubeMap();
-    stbi_write_png("out/cubemap.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
+	Converter::Equi equi = cube.toEqui();
+	img = equi.getEqui();
+	stbi_write_png("out/equi.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-    Converter::Equi equi = cube.toEqui();
+	img = equi.toFace().getFace(Converter::FRONT);
+	stbi_write_png("out/front.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-    img = equi.getEqui();
-    stbi_write_png("out/equi.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
+	img.img = stbi_load("assets/earth.png", &w, &h, &bpp, CHANNEL_NUM);
+	img.w = w, img.h = h;
 
-    Converter::Cube cube_ = equi.toCube();
+	img = Converter::Cube(img).toEqui().getEqui();
+	stbi_write_png("out/earth.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-    img = cube_.getFace(Converter::LEFT);
-    stbi_write_png("out/left.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
-
-    return 0;
+	return 0;
 }
