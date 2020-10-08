@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdint.h>
 #include <math.h>
-#endif
 
 #ifndef CHANNEL_NUM
 #define CHANNEL_NUM 4
@@ -245,6 +244,16 @@ namespace Converter
             CE_map = t_CE_map;
         }
 
+        Coord getCECoord(int i, int j)
+        {
+            return CE_map[i * equi_w + j];
+        }
+
+        Coord *getCEMap()
+        {
+            return CE_map;
+        }
+
         Image getEqui()
         {
             return equi;
@@ -255,6 +264,7 @@ namespace Converter
     private:
         // input size
         unsigned int equi_w, equi_h;
+        unsigned int cube_w, cube_h;
 
         // assets
         Image equi;
@@ -303,6 +313,33 @@ namespace Converter
     Cube Equi::toCube()
     {
         Cube cube = Cube();
+        Image faces[FACE_NUM];
+
+        cube_h = equi_h / 2;
+        cube_w = equi_w / 4;
+
+        for (int i = 0; i < FACE_NUM; ++i)
+        {
+            faces[i].h = cube_h;
+            faces[i].w = cube_w;
+            faces[i].img = new uint8_t[cube_w * cube_h * CHANNEL_NUM];
+        }
+
+        for (int i = 0; i < equi_h; ++i)
+        {
+            for (int j = 0; j < equi_w; ++j)
+            {
+                Coord coord = getCECoord(i, j);
+                for (int k = 0; k < CHANNEL_NUM; ++k)
+                {
+                    faces[coord.face].img[CHANNEL_NUM * ((unsigned long)coord.y * cube_w + (unsigned long)coord.x) + k] =
+                        equi.img[CHANNEL_NUM * (i * equi.w + j) + k];
+                }
+            }
+        }
+
+        cube.setCube(faces);
         return cube;
     }
 } // namespace Converter
+#endif
