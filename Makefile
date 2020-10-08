@@ -1,7 +1,7 @@
 OUTPUT_DIR = out
 
 all:
-	@clang++ example/example.cpp -lm -o example/example
+	@clang++ -std=c++11 example/example.cpp -lm -o example/example
 
 run:
 	@if [ ! -d $(OUTPUT_DIR) ]; then mkdir $(OUTPUT_DIR); fi
