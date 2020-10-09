@@ -39,6 +39,11 @@ namespace Converter
     class Converter
     {
     public:
+        Converter()
+        {
+            FE_map = FS_map = NULL;
+        }
+
         inline bool isInRange(const double l, const double theta, const double u)
         {
             return (theta >= l && theta < u);
@@ -173,7 +178,7 @@ namespace Converter
         unsigned int cube_h, cube_w;
         unsigned int equi_h, equi_w;
         unsigned int stereo_h, stereo_w;
-        Coord *FE_map = NULL, *FS_map = NULL;
+        Coord *FE_map, *FS_map;
     };
 
     class Face;
@@ -323,8 +328,8 @@ namespace Converter
         face_w = cubemap.w / 4;
 
         Image faces[FACE_NUM];
-        for (int i = 0; i < FACE_NUM; ++i)
-            faces[i] = {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
+        for (int i = 0; i < FACE_NUM; ++i) 
+            faces[i] = (Image) {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
 
         crop(cubemap, faces[FRONT], face_h, face_w);
         crop(cubemap, faces[RIGHT], face_h, 2 * face_w);
@@ -351,7 +356,7 @@ namespace Converter
 
         Image faces[FACE_NUM];
         for (int i = 0; i < FACE_NUM; ++i)
-            faces[i] = {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
+            faces[i] = (Image) {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
 
         for (int i = 0; i < equi.h; ++i)
         {
