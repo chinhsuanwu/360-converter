@@ -41,7 +41,8 @@ namespace Converter
     public:
         Converter()
         {
-            FE_map = FS_map = NULL;
+            FE_map = ES_map = NULL;
+            return;
         }
 
         inline bool isInRange(const double l, const double theta, const double u)
@@ -103,6 +104,8 @@ namespace Converter
             // Translation
             *coord_x += radius;
             *coord_y += radius;
+
+            return;
         }
 
         void setFEMap(Coord *t_FE_map = NULL)
@@ -161,6 +164,7 @@ namespace Converter
                     FE_map[pix++].y = coord_y;
                 }
             }
+            return;
         }
 
         Coord getFECoord(int i, int j)
@@ -173,12 +177,74 @@ namespace Converter
             return FE_map;
         }
 
+        void cart2pol(const int x, const int y, double &rho, double &theta)
+        {
+            const double deg = 180.0 / M_PI;
+            rho = sqrt(x * x + y * y);
+            theta = atan2(y, x) * deg;
+
+            return;
+        }
+
+        void pol2cart(int &x, int &y, double rho, double theta)
+        {
+            const double deg = 180.0 / M_PI;
+            x = rho * cos(theta / deg);
+            y = rho * sin(theta / deg);
+            return;
+        }
+
+        /*
+        void setESMap(Coord *t_ES_map = NULL)
+        {
+            if (!FE_map)
+                setFEMap();
+
+            stereo_h = equi_h;
+            stereo_w = equi_w / 2;
+            assert(stereo_w == stereo_h);
+
+            ES_map = new Coord[stereo_h * stereo_w];
+
+            for (int i = 0; i < stereo_h; ++i)
+            {
+                for (int j = 0; j < stereo_w; ++j)
+                {
+                    double rho, theta;
+                    // cart2pol(j, i, rho, theta);
+
+                    if (rho <= (double)stereo_w / 2)
+                    {
+                        unsigned int x, y;
+                        pol2cart(x, y, rho, theta);
+                        Coord coord = getFECoord(y, x);
+
+                        ES_map[i * stereo_h + j].face = coord.face;
+                        ES_map[i * stereo_h + j].x = coord.x;
+                        ES_map[i * stereo_h + j].y = coord.y;
+                    }
+                }
+            }
+            return;
+        }
+
+        Coord getESCoord(int i, int j)
+        {
+            return ES_map[i * stereo_w + j];
+        }
+
+        Coord *getESMap()
+        {
+            return ES_map;
+        }
+*/
+
     protected:
         unsigned int face_h, face_w;
         unsigned int cube_h, cube_w;
         unsigned int equi_h, equi_w;
         unsigned int stereo_h, stereo_w;
-        Coord *FE_map, *FS_map;
+        Coord *FE_map, *ES_map;
     };
 
     class Face;
@@ -266,6 +332,7 @@ namespace Converter
 
         Face toFace();
         Cube toCube();
+        Stereo toStereo();
 
     private:
         Image equi;
@@ -274,7 +341,16 @@ namespace Converter
     class Stereo : public Converter
     {
     public:
-        Stereo(){};
+        Stereo(Image t_stereo) : stereo(t_stereo)
+        {
+            stereo_h = stereo.h;
+            stereo_w = stereo.w;
+        };
+
+        Image getStereo()
+        {
+            return stereo;
+        }
 
     private:
         Image stereo;
@@ -328,8 +404,8 @@ namespace Converter
         face_w = cubemap.w / 4;
 
         Image faces[FACE_NUM];
-        for (int i = 0; i < FACE_NUM; ++i) 
-            faces[i] = (Image) {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
+        for (int i = 0; i < FACE_NUM; ++i)
+            faces[i] = (Image){face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
 
         crop(cubemap, faces[FRONT], face_h, face_w);
         crop(cubemap, faces[RIGHT], face_h, 2 * face_w);
@@ -356,7 +432,7 @@ namespace Converter
 
         Image faces[FACE_NUM];
         for (int i = 0; i < FACE_NUM; ++i)
-            faces[i] = (Image) {face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
+            faces[i] = (Image){face_h, face_w, new uint8_t[face_w * face_h * CHANNEL_NUM]};
 
         for (int i = 0; i < equi.h; ++i)
         {
@@ -380,6 +456,37 @@ namespace Converter
     Cube Equi::toCube()
     {
         return toFace().toCube();
+    }
+
+    Stereo Equi::toStereo()
+    {
+        stereo_h = equi_h;
+        stereo_w = equi_w / 2;
+
+        Image img = {stereo_h, stereo_w, new uint8_t[stereo_w * stereo_h * CHANNEL_NUM]};
+
+        unsigned int org_x = stereo_w / 2;
+        unsigned int org_y = stereo_h / 2;
+
+        for (int i = 0; i < stereo_h; ++i)
+        {
+            for (int j = 0; j < stereo_w; ++j)
+            {
+                double rho, theta;
+                cart2pol(j - org_x, i - org_y, rho, theta);
+
+                if (rho <= stereo_w / 2)
+                {
+                    for (int k = 0; k < CHANNEL_NUM; ++k)
+                    {
+                        img.img[CHANNEL_NUM * (i * img.w + j) + k] =
+                            equi.img[CHANNEL_NUM * (int(rho * 2.0) * equi.w + int(theta / 360.0 * equi.w)) + k];
+                    }
+                }
+            }
+        }
+
+        return Stereo(img);
     }
 
 } // namespace Converter
