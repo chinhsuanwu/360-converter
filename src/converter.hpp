@@ -194,7 +194,6 @@ namespace Converter
             return;
         }
 
-        /*
         void setESMap(Coord *t_ES_map = NULL)
         {
             if (!FE_map)
@@ -206,22 +205,23 @@ namespace Converter
 
             ES_map = new Coord[stereo_h * stereo_w];
 
+            unsigned int org_x = stereo_w / 2;
+            unsigned int org_y = stereo_h / 2;
+
+            unsigned int pix = 0;
             for (int i = 0; i < stereo_h; ++i)
             {
                 for (int j = 0; j < stereo_w; ++j)
                 {
                     double rho, theta;
-                    // cart2pol(j, i, rho, theta);
+                    cart2pol(j - org_x, i - org_y, rho, theta);
 
-                    if (rho <= (double)stereo_w / 2)
+                    if (rho <= stereo_w / 2)
                     {
-                        unsigned int x, y;
-                        pol2cart(x, y, rho, theta);
-                        Coord coord = getFECoord(y, x);
-
-                        ES_map[i * stereo_h + j].face = coord.face;
-                        ES_map[i * stereo_h + j].x = coord.x;
-                        ES_map[i * stereo_h + j].y = coord.y;
+                        Coord coord = getFECoord(int(rho * 2.0), int(theta / 360.0 * equi_w));
+                        ES_map[pix].face = coord.face;
+                        ES_map[pix].x = coord.x;
+                        ES_map[pix++].y = coord.y;
                     }
                 }
             }
@@ -237,7 +237,41 @@ namespace Converter
         {
             return ES_map;
         }
-*/
+
+        template <class T>
+        void swap(T &a, T &b)
+        {
+            T c(a);
+            a = b;
+            b = c;
+        }
+
+        Image rotate(Image t_img, double theta = M_PI_2)
+        {
+            Image img = (Image){((theta == M_PI_2 || theta == M_PI + M_PI_2) ? t_img.w : t_img.h),
+                                ((theta == M_PI_2 || theta == M_PI + M_PI_2) ? t_img.h : t_img.w),
+                                new uint8_t[t_img.w * t_img.h * CHANNEL_NUM]};
+
+            for (int i = 0; i < t_img.h; ++i)
+            {
+                for (int j = 0; j < t_img.w; ++j)
+                {
+                    double x = j * cos(theta) - i * sin(theta);
+                    double y = j * sin(theta) + i * cos(theta);
+
+                    if (x < 0.0)
+                        x += img.w;
+                    if (y < 0.0)
+                        y += img.h;
+
+                    for (int k = 0; k < CHANNEL_NUM; ++k)
+                    {
+                        img.img[CHANNEL_NUM * int(y * img.w + x) + k] = t_img.img[CHANNEL_NUM * (i * t_img.w + j) + k];
+                    }
+                }
+            }
+            return img;
+        }
 
     protected:
         unsigned int face_h, face_w;
@@ -332,7 +366,7 @@ namespace Converter
 
         Face toFace();
         Cube toCube();
-        Stereo toStereo();
+        Stereo toStereo(FaceID faceID);
 
     private:
         Image equi;
@@ -458,7 +492,7 @@ namespace Converter
         return toFace().toCube();
     }
 
-    Stereo Equi::toStereo()
+    Stereo Equi::toStereo(FaceID faceID = TOP)
     {
         stereo_h = equi_h;
         stereo_w = equi_w / 2;
@@ -477,15 +511,27 @@ namespace Converter
 
                 if (rho <= stereo_w / 2)
                 {
+                    if (theta < 0.0)
+                        theta += 360.0;
+                    
+                    int x, y;
+                    x = (faceID == DOWN ? theta / 360 * equi.w : (1 - theta / 360) * equi.w);
+                    y = (faceID == DOWN ? equi.h - int(rho * 2.0) : int(rho * 2.0));
+
                     for (int k = 0; k < CHANNEL_NUM; ++k)
                     {
                         img.img[CHANNEL_NUM * (i * img.w + j) + k] =
-                            equi.img[CHANNEL_NUM * (int(rho * 2.0) * equi.w + int(theta / 360.0 * equi.w)) + k];
+                            equi.img[CHANNEL_NUM * (y * equi.w + x) + k];
                     }
                 }
             }
         }
 
+        if (faceID == DOWN)
+            img = rotate(img);
+        else
+            img = rotate(img, -M_PI_2);
+        
         return Stereo(img);
     }
 

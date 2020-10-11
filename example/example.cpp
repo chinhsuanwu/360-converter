@@ -41,6 +41,7 @@ int main(int argc, char **argv)
 	// img = Converter::Cube(img).toEqui().getEqui();
 	// stbi_write_png("out/earth.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
+	// img = Converter::Cube(img).toEqui().toStereo().getStereo();
 	img = face.toEqui().toStereo().getStereo();
 	stbi_write_png("out/stereo.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
