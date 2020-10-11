@@ -35,15 +35,19 @@ int main(int argc, char **argv)
 	// img = equi.toFace().getFace(Converter::FRONT);
 	// stbi_write_png("out/front.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-	// img.img = stbi_load("assets/earth.png", &w, &h, &bpp, CHANNEL_NUM);
+	// img.img = stbi_load("assets/blackhole.png", &w, &h, &bpp, CHANNEL_NUM);
 	// img.w = w, img.h = h;
 
 	// img = Converter::Cube(img).toEqui().getEqui();
 	// stbi_write_png("out/earth.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
-	// img = Converter::Cube(img).toEqui().toStereo().getStereo();
+	// Converter::Equi equi = Converter::Equi(img);
+	// img = equi.toStereo().getStereo();
 	img = face.toEqui().toStereo().getStereo();
 	stbi_write_png("out/stereo.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
+
+	// img = equi.toFace().getFace(Converter::FRONT);
+	// stbi_write_png("out/front.png", img.w, img.h, CHANNEL_NUM, img.img, img.w * CHANNEL_NUM);
 
 	return 0;
 }
