@@ -45,6 +45,12 @@ For example, the conversion from `Face` to `Cube`, `Equi` and `Stereo` can be sh
     | `TOP` | `DOWN` |
     | :---: | :---: |
     | ![](assets/stereo_top.png) | ![](assets/stereo.png) |
+
+- To load image
+    ```c++
+    img.img = stbi_load("assets/equi.png", &w, &h, &bpp, CHANNEL_NUM);
+	img.w = w, img.h = h;
+    ```
 - To write image
     ```c++
     stbi_write_png("out/equi.png", img.w, img.h, CHANNEL_NUM, img.img, img.w*CHANNEL_NUM);
@@ -53,4 +59,4 @@ For example, the conversion from `Face` to `Cube`, `Equi` and `Stereo` can be sh
 Find out more at [example.cpp](https://github.com/chinhsuanwu/360-converter/blob/master/example/example.cpp)
 
 ## Acknowledgement
-This project is using [stb](https://github.com/nothings/stb) library for image I/O, great thanks to their excellent work.
+This project is using [stb](https://github.com/nothings/stb) library for image I/O in [example.cpp](https://github.com/chinhsuanwu/360-converter/blob/master/example/example.cpp), great thanks to their excellent work.

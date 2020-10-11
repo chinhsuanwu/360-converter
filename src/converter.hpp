@@ -492,7 +492,7 @@ namespace Converter
         return toFace().toCube();
     }
 
-    Stereo Equi::toStereo(FaceID faceID = TOP)
+    Stereo Equi::toStereo(FaceID faceID = DOWN)
     {
         stereo_h = equi_h;
         stereo_w = equi_w / 2;
